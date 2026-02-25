@@ -19,20 +19,30 @@
 #include "jsjit.h"
 #include "jsvariterator.h"
 
+#ifdef ESPR_SAVE_ON_FLASH_JIT
+#define DEBUG_JIT(...) {}
+// Write debug info to the console IF we're in the 'emit' phase
+#define DEBUG_JIT_EMIT(...) {}
+#else
 // Write debug info to the console
 #define DEBUG_JIT jsjcDebugPrintf
 // Write debug info to the console IF we're in the 'emit' phase
-#define DEBUG_JIT_EMIT if (jit.phase == JSJP_EMIT) jsjcDebugPrintf
+#define DEBUG_JIT_EMIT if (jit->phase == JSJP_EMIT) jsjcDebugPrintf
 // Called to print debug info - best to use DEBUG_JIT so we can disable debug lines for final compiles though
 void jsjcDebugPrintf(const char *fmt, ...);
+#endif
 
 #define JSJ_TYPE_STACK_SIZE 64 // Most amount of types stored on stack
 
 typedef enum {
+  JSJVT_UNDEFINED,
+  JSJVT_BOOL,
   JSJVT_INT,
   JSJVT_JSVAR,        ///< A JsVar
   JSJVT_JSVAR_NO_NAME ///< A JsVar, and we know it's not a name so it doesn't need SkipName
 } PACKED_FLAGS JsjValueType;
+
+#define JSJVT_NEEDS_UNLOCK(t) (((t)==JSJVT_JSVAR) || ((t)==JSJVT_JSVAR_NO_NAME))
 
 typedef enum {
   JSJAC_EQ, // Equal / equals zero
@@ -78,6 +88,10 @@ typedef struct {
   JsVar *code;
   /// An iterator to increase write speed for code
   JsvStringIterator codeIt;
+  /// The last 16 bits we are due to write to codeIt (for peephole optimisations)
+  uint16_t lastCode;
+  // Does lastCode contain any data? (do we have stuff we need to flush with jsjcFlushCode)
+  bool hasLastCode;
   /// The ARM Thumb-2 variable init code block (this goes right at the start of our function)
   JsVar *initCode;
   /// How many blocks deep are we? blockCount=0 means we're writing to the 'code' var
@@ -90,18 +104,20 @@ typedef struct {
   int stackDepth;
   /// For each item on the stack, we store its type
   JsjValueType typeStack[JSJ_TYPE_STACK_SIZE];
+  /// A bit mask of registers that are currently in use (r4..r7) - see jsjcClaimFreeReg jsjcReturnFreeReg
+  uint8_t regsInUse;
 } JsjInfo;
 
 // JIT state
-extern JsjInfo jit;
+extern JsjInfo *jit;
 
 typedef enum {
   JSJC_NONE = 0,        ///< emit normally
   JSJC_FORCE_4BYTE = 1  ///< create 4 byte instruction even if 2 byte would have done
 } JsjsEmitOptions;
 
-// Called before start of JIT output
-void jsjcStart();
+// Called before start of JIT output (give this a pointer to JsjInfo on the stack)
+void jsjcStart(JsjInfo *_jit);
 // Called when JIT output stops
 JsVar *jsjcStop();
 // Called before start of a block of code. Returns the old code jsVar that should be passed into jsjcStopBlock. Ignored unless in JSJP_EMIT phase
@@ -151,7 +167,7 @@ void jsjcMVN(int regTo, int regFrom);
 // regTo = regTo & regFrom
 void jsjcAND(int regTo, int regFrom);
 // Convert the var type in the given reg to a JsVar
-void jsjcConvertToJsVar(int reg, JsjValueType varType);
+JsjValueType jsjcConvertToJsVar(int reg, JsjValueType varType);
 // Push a register onto the stack
 void jsjcPush(int reg, JsjValueType type);
 // Get the type of the variable on the top of the stack
@@ -169,6 +185,11 @@ void jsjcStoreImm(int reg, int regAddr, int offset);
 
 void jsjcPushAll();
 void jsjcPopAllAndReturn();
+
+/// Get the number of a register that we're free to use (or error is none free) and mark as in use
+int jsjcClaimFreeReg();
+/// Mark a register returned by jsjcClaimFreeReg as unused
+void jsjcReturnFreeReg(int reg);
 
 #endif /* JSJITC_H_ */
 #endif /* ESPR_JIT */

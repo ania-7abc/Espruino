@@ -1,4 +1,4 @@
-          : Array.sort: fix issue where *some* sorts of 10+ items could cause the array not to be GC'd
+     2v29 : Array.sort: fix issue where *some* sorts of 10+ items could cause the array not to be GC'd
             Bangle.js: Updated built-in Layout.js with some minor fixes
             STM32: Ensure setDeepSleep(1) will only sleep if there are no active PWM outputs
             Pin.getInfo().negated now set if pin negated in firmware
@@ -37,6 +37,19 @@
             Packet uploads now send an E.packetUpload event, which E.showMessage(,uploadProgress:bytes) can use to update itself
             Extra checks to ensure we handle functions that have their code deleted while being executed (eg .boot0 - #2681)
             Bangle.js1: Remove E.dumpStr/dumpFragmentation (and Bangle.touchWr/hrmRd which have no effect) to keep builds running after firmware size increase
+            Bangle.js Emulator: Fix `g.flip()` function after recent additions (fix #2684)
+            Bangle.js2: Ensure right-aligned widgets go right to the edge of the screen (#2686)
+            Puck.js: Allow Puck.accelRd to read more than one byte at once
+            Jolt.js: Set default console to Bluetooth (so it doesn't use Serial1 if it's initialised)
+            Jolt.js: Add USB flow control (fix #2688)
+            JIT: Ensure .emit/etc work on built-in objects (NRF/E/etc) - set 'this' correctly (fix #2690)
+            JIT: allow native functions (Date.now(), Pin.set(), Pin.read()) to be called directly
+            JIT: allow int/bool/undefined to be stored on the stack and converted to JsVar only when needed
+            JIT: cope with returning nested arrays/objects/etc by checking if upper registers are in use or not
+            JIT: Add peephole optimisations for push/pop (#2691)
+            JIT: Remove 'jit' object from RAM (store in stack only when needed) - fix #2664
+            Bangle.js2: Ensure Factory Reset deletes stored pairing data
+            nRF52: when initialising DCDC converter, use 0xDC stored in GPREGRET to check for failure, not LOCKUP in RESETREAS
 
      2v28 : Add `E.internal` as a way to access the 'hidden root' containing Espruino internal variables that previously needed `global["\xff"]`
             Bangle.js: Fix back handler not removed when using E.setUI with a back button but without widgets (#2636)

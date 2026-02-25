@@ -3067,6 +3067,7 @@ Writes a command directly to the ST7735 LCD controller
 */
 void jswrap_banglejs_lcdWr(JsVarInt cmd, JsVar *data) {
   JSV_GET_AS_CHAR_ARRAY(dPtr, dLen, data);
+  if (!dPtr) return;
 #ifdef LCD_CONTROLLER_ST7789_8BIT
   lcdST7789_cmd(cmd, dLen, (const uint8_t *)dPtr);
 #endif
@@ -4993,7 +4994,7 @@ void jswrap_banglejs_accelWr(JsVarInt reg, JsVarInt data) {
     "generate" : "jswrap_banglejs_accelRd",
     "params" : [
       ["reg","int",""],
-      ["cnt","int","If specified, returns an array of the given length (max 128). If not (or 0) it returns a number"]
+      ["cnt","int","If specified, returns a `Uint8Array` of the given length (max 128). If `undefined` (or 0) it returns a number"]
     ],
     "return" : ["JsVar",""],
     "ifdef" : "BANGLEJS",
@@ -6419,7 +6420,8 @@ with a swipe by using:
     "#if" : "defined(BANGLEJS_Q3) || defined(EMULATED) || defined(DICKENS)"
 }
 
-Erase all storage and reload it with the default contents.
+Erase all storage and reload it with the default contents. As of 2v29 it will also
+remove any pairing data from flash memory.
 
 This is only available on Bangle.js 2.0. On Bangle.js 1.0 you need to use
 `Install Default Apps` under the `More...` tab of http://banglejs.com/apps
@@ -6428,6 +6430,11 @@ extern void ble_app_error_handler(uint32_t error_code, uint32_t line_num, const 
 void jswrap_banglejs_factoryReset(bool noReboot) {
   jsfResetStorage();
   if (!noReboot) jsiStatus |= JSIS_TODO_FLASH_LOAD;
+#if defined(BANGLEJS_Q3) // erase bluetooh pairing info - https://github.com/orgs/espruino/discussions/4032#discussioncomment-15900778
+  jshFlashErasePage(245 * 4096);
+  jshFlashErasePage(246 * 4096);
+  jshFlashErasePage(247 * 4096);
+#endif
 }
 
 /*JSON{
